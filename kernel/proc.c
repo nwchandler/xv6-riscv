@@ -125,6 +125,9 @@ found:
   p->pid = allocpid();
   p->state = USED;
 
+  p->stride = STRIDENUMERATOR / STRIDEPRIORITY;
+  p->pass = 0;
+
   // Allocate a trapframe page.
   if((p->trapframe = (struct trapframe *)kalloc()) == 0){
     freeproc(p);
@@ -477,6 +480,67 @@ scheduler(void)
       intr_on();
       asm volatile("wfi");
     }
+  }
+}
+
+// stride implements a basic stride scheduling discipline.
+// It can be set up in the kernel by replacing the call in
+// main from scheduler() to stride().
+void
+stride(void)
+{
+  struct proc *p;
+  struct cpu *c = mycpu();
+
+  c->proc = 0;
+  for(;;){
+    // The most recent process to run may have had interrupts
+    // turned off; enable them to avoid a deadlock if all
+    // processes are waiting.
+    intr_on();
+
+    struct proc *best = 0;
+
+    for (p = proc; p < &proc[NPROC]; p++) {
+      acquire(&p->lock);
+      if (p->state != RUNNABLE) {
+        release(&p->lock);
+        continue;
+      }
+
+      if ((best == 0) || p->pass < best->pass) {
+        // p is the new best
+        if (best) {
+          release(&best->lock);
+        }
+        best = p;
+      } else {
+        // otherwise, just keep on going!
+        release(&p->lock);
+      }
+    }
+
+    if(best == 0) {
+      // nothing to run; stop running on this core until an interrupt.
+      intr_on();
+      asm volatile("wfi");
+      continue;
+    }
+
+    // We have selected the best next process to run. Set its
+    // state and CPU state, then switch into it. It is up to
+    // the process to release its lock and reacquire it before
+    // returning to the scheduler.
+    best->state = RUNNING;
+    c->proc = best;
+    swtch(&c->context, &best->context);
+    best->pass += best->stride;
+
+    // Process is done running for now.
+    // It should have changed its p->state before coming back.
+    release(&best->lock);
+
+    c->proc = 0;
   }
 }
 
