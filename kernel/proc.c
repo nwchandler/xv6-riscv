@@ -125,7 +125,7 @@ found:
   p->pid = allocpid();
   p->state = USED;
 
-  p->stride = STRIDENUMERATOR / STRIDEPRIORITY;
+  p->stride = STRIDENUMERATOR / DEFAULTPRIORITY;
   p->pass = 0;
 
   // Allocate a trapframe page.
@@ -238,6 +238,8 @@ userinit(void)
   struct proc *p;
 
   p = allocproc();
+  // We give the init process maximum priority by default.
+  p->stride = STRIDENUMERATOR / MAXPRIORITY;
   initproc = p;
   
   // allocate one user page and copy initcode's instructions
@@ -645,13 +647,11 @@ wakeup(void *chan)
   struct proc *p;
 
   for(p = proc; p < &proc[NPROC]; p++) {
-    if(p != myproc()){
-      acquire(&p->lock);
-      if(p->state == SLEEPING && p->chan == chan) {
-        p->state = RUNNABLE;
-      }
-      release(&p->lock);
+    acquire(&p->lock);
+    if(p->state == SLEEPING && p->chan == chan) {
+      p->state = RUNNABLE;
     }
+    release(&p->lock);
   }
 }
 
@@ -756,4 +756,34 @@ procdump(void)
     printf("%d %s %s", p->pid, state, p->name);
     printf("\n");
   }
+}
+
+// Update the priority (1 - MAXPRIORITY) of a process. When
+// using the stride scheduler, this affects the frequency
+// of scheduling the process, where higher values represent
+// a higher proportional share, and lower values are lower.
+// The proportion is not linear, however; the stride is set
+// to STRIDENUMERATOR / priority. Returns -1 if the priority
+// is not in the correct range or if there is no active
+// process with the provided PID.
+int
+setpriority(int pid, uint64 priority)
+{
+  if (priority < 1 || priority > MAXPRIORITY) {
+    return -1;
+  }
+  struct proc *p;
+  uint64 stride = STRIDENUMERATOR / priority;
+
+  for (p = proc; p < &proc[NPROC]; p++) {
+    acquire(&p->lock);
+    if (p->pid == pid) {
+      p->stride = stride;
+      release(&p->lock);
+      return 0;
+    }
+    release(&p->lock);
+  }
+
+  return -1;
 }

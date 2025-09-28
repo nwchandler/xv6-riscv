@@ -15,4 +15,5 @@
 
 // Stride Constants
 #define STRIDENUMERATOR 10000 // numerator for stride calculation
-#define STRIDEPRIORITY  50    // default priority level for stride calculation
+#define DEFAULTPRIORITY 50    // default priority level for stride calculation
+#define MAXPRIORITY     100   // maximum priority level for stride calculation

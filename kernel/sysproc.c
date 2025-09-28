@@ -98,3 +98,18 @@ sys_getfree(void)
 {
   return kfreesize();
 }
+
+// set the priority of a process.
+// arg 1: int pid
+// arg 2: uint64 priority (1 - MAXPRIORITY)
+uint64
+sys_setpriority(void)
+{
+  int pid;
+  uint64 priority;
+
+  argint(0, &pid);
+  argaddr(1, &priority);
+
+  return setpriority(pid, priority);
+}
