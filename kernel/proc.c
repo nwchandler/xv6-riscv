@@ -33,7 +33,7 @@ void
 proc_mapstacks(pagetable_t kpgtbl)
 {
   struct proc *p;
-  
+
   for(p = proc; p < &proc[NPROC]; p++) {
     char *pa = kalloc();
     if(pa == 0)
@@ -48,7 +48,7 @@ void
 procinit(void)
 {
   struct proc *p;
-  
+
   initlock(&pid_lock, "nextpid");
   initlock(&wait_lock, "wait_lock");
   for(p = proc; p < &proc[NPROC]; p++) {
@@ -93,7 +93,7 @@ int
 allocpid()
 {
   int pid;
-  
+
   acquire(&pid_lock);
   pid = nextpid;
   nextpid = nextpid + 1;
@@ -241,7 +241,7 @@ userinit(void)
   // We give the init process maximum priority by default.
   p->stride = STRIDENUMERATOR / MAXPRIORITY;
   initproc = p;
-  
+
   // allocate one user page and copy initcode's instructions
   // and data into it.
   uvmfirst(p->pagetable, initcode, sizeof(initcode));
@@ -377,7 +377,7 @@ exit(int status)
 
   // Parent might be sleeping in wait().
   wakeup(p->parent);
-  
+
   acquire(&p->lock);
 
   p->xstate = status;
@@ -433,7 +433,7 @@ wait(uint64 addr)
       release(&wait_lock);
       return -1;
     }
-    
+
     // Wait for a child to exit.
     sleep(p, &wait_lock);  //DOC: wait-sleep
   }
@@ -541,7 +541,6 @@ stride(void)
     // Process is done running for now.
     // It should have changed its p->state before coming back.
     release(&best->lock);
-
     c->proc = 0;
   }
 }
@@ -614,7 +613,7 @@ void
 sleep(void *chan, struct spinlock *lk)
 {
   struct proc *p = myproc();
-  
+
   // Must acquire p->lock in order to
   // change p->state and then call sched.
   // Once we hold p->lock, we can be
@@ -647,11 +646,13 @@ wakeup(void *chan)
   struct proc *p;
 
   for(p = proc; p < &proc[NPROC]; p++) {
-    acquire(&p->lock);
-    if(p->state == SLEEPING && p->chan == chan) {
-      p->state = RUNNABLE;
+    if(p != myproc()){
+      acquire(&p->lock);
+      if(p->state == SLEEPING && p->chan == chan) {
+        p->state = RUNNABLE;
+      }
+      release(&p->lock);
     }
-    release(&p->lock);
   }
 }
 
@@ -691,7 +692,7 @@ int
 killed(struct proc *p)
 {
   int k;
-  
+
   acquire(&p->lock);
   k = p->killed;
   release(&p->lock);
