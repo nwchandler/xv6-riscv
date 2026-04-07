@@ -536,12 +536,12 @@ stride(void)
     best->state = RUNNING;
     c->proc = best;
     swtch(&c->context, &best->context);
+    c->proc = 0;
     best->pass += best->stride;
 
     // Process is done running for now.
     // It should have changed its p->state before coming back.
     release(&best->lock);
-    c->proc = 0;
   }
 }
 
